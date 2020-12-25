@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+import re
 
 
 def capitalize(language_name: str) -> str:
@@ -10,17 +11,19 @@ def translate(source, target, word):
     translation_page = requests.get(f"https://context.reverso.net/translation/{source}-{target}/{word}",
                                     headers={'User-Agent': 'Mozilla/5.0'})
     soup = BeautifulSoup(translation_page.content, 'html.parser')
-    words_translated = set(_word.text.lower() for _word in soup.find_all('a', {'class': 'link_highlighted'}))
-    example_src = [_phrase.text.strip() for _phrase in soup('div', {'class': 'src ltr'})]
-    example_trg = [_phrase.text.strip() for _phrase in soup('div', {'class': 'trg ltr'})]
-    output = [f'{capitalize(target)} Translations:\n']
-    for _word in words_translated:
-        output.append(_word + '\n')
-    output.append(f'\n{capitalize(target)} Example:\n')
-    output.append(example_src[0] + '\n')
-    output.append(example_trg[0] + '\n')
-    print(''.join(output))
-    return ''.join(output)
+    words_translated = set([_word.text.strip().lower() for _word in soup.find_all('a', {'class': 'link_highlighted'})])
+    words = '\n'.join(words_translated)
+    example_src = soup.find('div', {'class': 'src ltr'}).text.strip()
+    example_trg = soup.find('div', {'class': re.compile('trg[ a-zA-Z]*')}).text.strip()
+    output = f"""{capitalize(target)} Translations:
+{words}
+
+{capitalize(target)} Example:
+{example_src}
+{example_trg}
+
+"""
+    return output
 
 
 languages = ['arabic', 'german', 'english', 'spanish', 'french', 'hebrew', 'japanese', 'dutch', 'polish', 'portuguese',
@@ -36,10 +39,15 @@ choice = int(input())
 print('Type the word you want to translate:')
 word = input().lower()
 
-f = open(f'{word}.txt', 'w')
+
+translated_text = ''
 if choice == 0:
-    for language in languages:
-        f.write(translate(source, language, word))
+    for i in range(len(languages)):
+        if languages[i] != source:
+            translated_text += translate(source, languages[i], word)
 else:
-    f.write(translate(source, languages[choice - 1], word))
+    translated_text = translate(source, languages[choice - 1], word)
+print(translated_text)
+f = open(f'{word}.txt', 'w')
+f.write(translated_text)
 f.close()
